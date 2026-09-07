@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+anthropic
+pymupdf
+sqlalchemy
+chromadb
+sentence-transformers
+pydantic
+python-dotenv
+pytest

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fact Knowledge Layer</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass-panel header">
+            <h1>Fact Knowledge Layer</h1>
+            <p>Discover, ground, and compare facts across documents.</p>
+        </header>
+
+        <main class="content-grid">
+            <!-- Upload Section -->
+            <section class="glass-panel upload-section" id="upload-box">
+                <h2>Ingest Documents</h2>
+                <div class="drop-zone" id="drop-zone">
+                    <p>Drag & Drop PDFs here or <span>Click to Browse</span></p>
+                    <input type="file" id="file-input" accept="application/pdf" multiple hidden>
+                </div>
+                <div id="upload-status"></div>
+            </section>
+
+            <!-- Facts Section -->
+            <section class="glass-panel facts-section">
+                <div class="section-header">
+                    <h2>Extracted Facts</h2>
+                    <button class="btn-refresh" onclick="fetchFacts()">Refresh</button>
+                </div>
+                <div class="table-container">
+                    <table id="facts-table">
+                        <thead>
+                            <tr>
+                                <th>Fact</th>
+                                <th>Value / Time</th>
+                                <th>Source Document</th>
+                                <th>Confidence</th>
+                                <th>Evidence</th>
+                            </tr>
+                        </thead>
+                        <tbody id="facts-body">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Relationships Section -->
+            <section class="glass-panel relationships-section" style="grid-column: 1 / -1;">
+                <div class="section-header">
+                    <h2>Cross-Document Relationships</h2>
+                    <button class="btn-refresh" onclick="fetchRelationships()">Refresh</button>
+                </div>
+                <div class="relationships-container" id="relationships-container">
+                    <!-- Cards populated via JS -->
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <script src="/static/app.js"></script>
+</body>
+</html>

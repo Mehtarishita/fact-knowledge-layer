@@ -3,11 +3,12 @@ import requests
 import pandas as pd
 import json
 import base64
+import os
 
 # Configure page
 st.set_page_config(page_title="Knowledge Layer", layout="wide", initial_sidebar_state="expanded")
 
-API_BASE = "http://localhost:8000/api"
+API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 
 # --- Premium Dark/Neon Custom CSS ---
 st.markdown("""
@@ -123,7 +124,8 @@ st.markdown("""
             border-radius: 8px;
             padding: 15px;
             border: 1px solid rgba(51, 65, 85, 0.5);
-            height: 100%;
+            flex: 1 1 280px; /* Grow, shrink, but minimum 280px */
+            min-width: 280px;
         }
         .fact-col-title {
             color: #94a3b8;
@@ -257,13 +259,13 @@ with tab3:
                 <span class="rel-banner {css_class}">{rel_type}</span>
                 <p style="font-size: 1.1em; margin-bottom: 20px;"><strong>Verdict:</strong> {r.get('explanation', 'N/A')}</p>
                 
-                <div style="display: flex; gap: 20px;">
-                    <div style="flex: 1;" class="fact-col">
+                <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                    <div class="fact-col">
                         <div class="fact-col-title">Fact A</div>
                         <div style="color: #f8fafc; font-weight: 500; margin-bottom: 10px;">{r.get('fact1', {}).get('statement', 'Unknown')}</div>
                         <div style="font-size: 0.8em; color: #94a3b8;">📄 {r.get('fact1', {}).get('document', 'Unknown')}</div>
                     </div>
-                    <div style="flex: 1;" class="fact-col">
+                    <div class="fact-col">
                         <div class="fact-col-title">Fact B</div>
                         <div style="color: #f8fafc; font-weight: 500; margin-bottom: 10px;">{r.get('fact2', {}).get('statement', 'Unknown')}</div>
                         <div style="font-size: 0.8em; color: #94a3b8;">📄 {r.get('fact2', {}).get('document', 'Unknown')}</div>

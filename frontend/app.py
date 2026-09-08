@@ -16,8 +16,6 @@ st.markdown("""
 
         /* Base Backgrounds & Colors - Paper & Ink Theme */
         .stApp {
-            background-color: #f4f1ea; /* Aged paper */
-            color: #2c2c2c; /* Charcoal ink */
             font-family: 'IBM Plex Sans', sans-serif;
         }
         
@@ -89,7 +87,6 @@ st.markdown("""
         /* Sidebar styling */
         .css-1544g2n {
             padding-top: 2rem;
-            background-color: #e9e5db; /* Slightly darker paper for sidebar */
             border-right: 1px solid #d1cbbd;
         }
         

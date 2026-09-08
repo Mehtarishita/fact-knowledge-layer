@@ -75,13 +75,13 @@ function startPolling() {
     }, 3000);
 }
 
-function fetchData() {
+function fetchData(forceRender = false) {
     Promise.all([
         fetch('/api/facts').then(res => res.json()),
         fetch('/api/relationships').then(res => res.json())
     ])
     .then(([facts, relationships]) => {
-        if (JSON.stringify(facts) !== JSON.stringify(currentFacts) || 
+        if (forceRender || JSON.stringify(facts) !== JSON.stringify(currentFacts) || 
             JSON.stringify(relationships) !== JSON.stringify(currentRelationships)) {
             currentFacts = facts;
             currentRelationships = relationships;
@@ -183,5 +183,5 @@ function renderRelationships(relationships) {
 }
 
 // Ensure the refresh buttons use the new fetchData function
-window.fetchFacts = fetchData;
-window.fetchRelationships = fetchData;
+window.fetchFacts = () => fetchData(true);
+window.fetchRelationships = () => fetchData(true);

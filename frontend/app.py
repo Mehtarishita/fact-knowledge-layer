@@ -2,143 +2,175 @@ import streamlit as st
 import requests
 import pandas as pd
 import json
-import base64
 import os
 
-# Configure page
-st.set_page_config(page_title="Knowledge Layer", layout="wide", initial_sidebar_state="expanded")
+# Configure page (Must be the first Streamlit command)
+st.set_page_config(page_title="Fact Knowledge Layer", layout="wide", initial_sidebar_state="expanded")
 
 API_BASE = "http://localhost:8000/api"
 
-# --- Premium Dark/Neon Custom CSS ---
+# --- Archival Ledger Custom CSS ---
 st.markdown("""
     <style>
-        /* Base Backgrounds & Colors */
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+        /* Base Backgrounds & Colors - Paper & Ink Theme */
         .stApp {
-            background-color: #0b1121; /* Midnight Navy */
-            color: #e2e8f0;
+            background-color: #f4f1ea; /* Aged paper */
+            color: #2c2c2c; /* Charcoal ink */
+            font-family: 'IBM Plex Sans', sans-serif;
         }
         
         /* Main Headers */
         h1, h2, h3 {
-            color: #f8fafc !important;
-            font-family: 'Inter', sans-serif;
+            color: #111111 !important;
+            font-family: 'Crimson Pro', serif;
             font-weight: 700 !important;
+            letter-spacing: -0.5px;
         }
         
-        /* Neon Highlights */
-        .neon-text {
-            color: #22d3ee;
-            text-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
-        }
-        
-        /* Cards */
-        .glass-card {
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 12px;
+        /* Ledger Cards (Replacing glassmorphism) */
+        .ledger-card {
+            background: #ffffff;
+            border: 1px solid #d1cbbd; /* Crisp, hard borders */
             padding: 20px;
             margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-        }
-        .glass-card:hover {
-            border-color: rgba(34, 211, 238, 0.5);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(34, 211, 238, 0.2);
-            transform: translateY(-2px);
+            /* NO box-shadow. Strictly flat ledger style. */
         }
         
         /* Relationship Specific Banners */
         .rel-banner {
             display: inline-block;
-            padding: 6px 14px;
-            border-radius: 20px;
+            padding: 4px 10px;
             font-size: 0.85em;
-            font-weight: 700;
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 15px;
+            border-radius: 0; /* Square edges */
         }
         .rel-corroboration {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10b981;
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            background: #e8f5e9;
+            color: #1b5e20;
+            border: 1px solid #1b5e20;
         }
         .rel-contradiction {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: #ffebee;
+            color: #b71c1c;
+            border: 1px solid #b71c1c;
         }
         .rel-contextual {
-            background: rgba(245, 158, 11, 0.15);
-            color: #f59e0b;
-            border: 1px solid rgba(245, 158, 11, 0.3);
+            background: #fff8e1;
+            color: #f57f17;
+            border: 1px solid #f57f17;
         }
         .rel-failure {
-            background: rgba(139, 92, 246, 0.15);
-            color: #8b5cf6;
-            border: 1px solid rgba(139, 92, 246, 0.3);
+            background: #f3e5f5;
+            color: #4a148c;
+            border: 1px solid #4a148c;
         }
 
         /* Metrics */
         div[data-testid="stMetricValue"] {
-            color: #22d3ee;
-            font-size: 2.5rem !important;
-            font-weight: 800 !important;
-            text-shadow: 0 0 15px rgba(34, 211, 238, 0.3);
+            color: #111111;
+            font-family: 'Crimson Pro', serif;
+            font-size: 3rem !important;
+            font-weight: 700 !important;
+        }
+        div[data-testid="stMetricLabel"] {
+            color: #5e5c58;
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
         /* Sidebar styling */
         .css-1544g2n {
             padding-top: 2rem;
+            background-color: #e9e5db; /* Slightly darker paper for sidebar */
+            border-right: 1px solid #d1cbbd;
         }
         
-        /* Buttons */
+        /* Buttons - Fountain Pen Blue */
         .stButton>button {
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-            color: white;
+            background-color: #1a4b8c;
+            color: #ffffff;
             border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s ease;
+            border-radius: 0; /* Sharp corners */
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
         }
         .stButton>button:hover {
-            box-shadow: 0 0 15px rgba(139, 92, 246, 0.6);
-            transform: scale(1.02);
-            color: white;
+            background-color: #113366;
+            color: #ffffff;
+            box-shadow: none; /* No glow */
         }
         
         /* Fix text colors inside cards */
-        .glass-card p {
-            color: #cbd5e1;
+        .ledger-card p {
+            color: #2c2c2c;
             font-size: 0.95em;
             line-height: 1.6;
         }
-        .glass-card strong {
-            color: #f8fafc;
+        .ledger-card strong {
+            color: #111111;
         }
         
         /* Two-column layout for relationships */
         .fact-col {
-            background: rgba(15, 23, 42, 0.6);
-            border-radius: 8px;
+            background: #faf9f6;
             padding: 15px;
-            border: 1px solid rgba(51, 65, 85, 0.5);
-            flex: 1 1 280px; /* Grow, shrink, but minimum 280px */
+            border: 1px solid #d1cbbd;
+            flex: 1 1 280px;
             min-width: 280px;
         }
         .fact-col-title {
-            color: #94a3b8;
+            color: #5e5c58;
             font-size: 0.75em;
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1.5px;
             margin-bottom: 10px;
+            border-bottom: 1px solid #d1cbbd;
+            padding-bottom: 5px;
+        }
+        
+        /* Tab Styling overrides to fit theme */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 24px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            font-family: 'IBM Plex Sans', sans-serif;
+            color: #5e5c58;
+            font-weight: 600;
+        }
+        .stTabs [aria-selected="true"] {
+            color: #111111;
+            border-bottom-color: #1a4b8c !important;
+        }
+        
+        /* Monogram Logo Style */
+        .logo-mark {
+            display: inline-block;
+            font-family: 'Crimson Pro', serif;
+            font-weight: 700;
+            font-size: 1.5em;
+            color: #f4f1ea;
+            background: #111111;
+            width: 40px;
+            height: 40px;
+            text-align: center;
+            line-height: 40px;
+            border: 2px solid #111111;
+            margin-right: 12px;
+            vertical-align: middle;
         }
     </style>
 """, unsafe_allow_html=True)
-
-st.title("🧠 Evidence-Grounded Knowledge Layer")
-st.markdown("<p style='color: #94a3b8; font-size: 1.1em;'>A deterministic extraction and reasoning engine for complex PDF documents.</p>", unsafe_allow_html=True)
 
 
 # --- State & Data Fetching ---
@@ -151,16 +183,22 @@ def fetch_data():
     except:
         return [], []
 
+facts, relationships = fetch_data()
+
 # --- Sidebar ---
 with st.sidebar:
-    st.markdown("<h2 class='neon-text'>Control Panel</h2>", unsafe_allow_html=True)
-    st.markdown("---")
+    st.markdown("""
+        <div style="display: flex; align-items: center; margin-bottom: 30px;">
+            <div class="logo-mark">F</div>
+            <h2 style="margin:0; font-size: 1.2rem;">Fact Ledger</h2>
+        </div>
+    """, unsafe_allow_html=True)
     
     st.subheader("Ingest Documents")
     uploaded_files = st.file_uploader("Upload PDFs", type="pdf", accept_multiple_files=True)
     if st.button("Process Documents", use_container_width=True):
         if uploaded_files:
-            with st.spinner("Processing & Extracting Knowledge..."):
+            with st.spinner("Extracting factual claims..."):
                 for f in uploaded_files:
                     files = {"file": (f.name, f, "application/pdf")}
                     res = requests.post(f"{API_BASE}/upload", files=files)
@@ -171,7 +209,7 @@ with st.sidebar:
             st.cache_data.clear()
             st.rerun()
             
-    st.markdown("---")
+    st.markdown("<hr style='border: 1px solid #d1cbbd;'>", unsafe_allow_html=True)
     st.subheader("System State")
     if st.button("Sync Ledger", use_container_width=True):
         st.cache_data.clear()
@@ -186,64 +224,45 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Error clearing ledger: {e}")
 
-facts, relationships = fetch_data()
 
-# --- Main Layout (Tabs) ---
-tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🔍 Knowledge Repository", "⚖️ Cross-Document Reasoning"])
+# --- Top Intro Block ---
+st.markdown("""
+    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <div class="logo-mark">F</div>
+        <h1 style="margin:0; font-size: 2.2rem;">Fact Knowledge Layer</h1>
+    </div>
+    <p style="font-family: 'IBM Plex Sans', sans-serif; font-size: 1.1em; color: #2c2c2c; max-width: 800px; margin-bottom: 40px; line-height: 1.5;">
+        Upload documents, extract factual claims, and automatically cross-reference evidence. This ledger provides an inspectable, deterministic record of corroborations and contradictions across your datasets.
+    </p>
+""", unsafe_allow_html=True)
+
+# --- System Telemetry (Now immediately below intro) ---
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Documents Ingested", len(set(f.get("document", "") for f in facts if f.get("document"))))
+with col2:
+    st.metric("Facts Extracted", len(facts))
+with col3:
+    st.metric("Relationships Found", len(relationships))
+    
+st.markdown("<br><hr style='border-top: 1px solid #d1cbbd;'><br>", unsafe_allow_html=True)
+
+# --- How it Works / Pipeline ---
+st.markdown("### Verification Pipeline")
+st.markdown("""
+<div style="font-family: 'IBM Plex Sans', sans-serif; color: #5e5c58; margin-bottom: 40px; max-width: 800px;">
+    1. <strong>Page-Aware Extraction:</strong> PDFs are chunked while preserving exact page provenance.<br>
+    2. <strong>Fact Extraction:</strong> Identifies explicit numerical and semantic facts deterministically.<br>
+    3. <strong>Entity Normalization:</strong> Standardizes subjects, units, and time scopes for accurate comparison.<br>
+    4. <strong>Relationship Reasoning:</strong> Identifies Corroborations, Contradictions, and Contextual differences.
+</div>
+""", unsafe_allow_html=True)
+
+
+# --- Data Tabs (At the bottom) ---
+tab1, tab2 = st.tabs(["Cross-Document Reasoning", "Knowledge Repository"])
 
 with tab1:
-    st.markdown("### System Telemetry")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Documents Ingested", len(set(f.get("document", "") for f in facts if f.get("document"))))
-    with col2:
-        st.metric("Facts Extracted", len(facts))
-    with col3:
-        st.metric("Relationships Found", len(relationships))
-        
-    st.markdown("---")
-    st.markdown("### How it Works")
-    st.markdown("""
-    **Pipeline Architecture:**
-    1. **Page-Aware Extraction:** PDFs are chunked natively while preserving page provenance.
-    2. **Fact Extraction:** Identifies both explicit numerical and semantic facts deterministically.
-    3. **Entity Normalization:** Standardizes subjects, units, and time scopes.
-    4. **Relationship Reasoning:** Uses set-theory and cross-document heuristics to identify Corroborations, Contradictions, and Contextual differences deterministically.
-    """)
-
-with tab2:
-    st.markdown("### Extracted Facts Repository")
-    search_query = st.text_input("Filter Facts by Keyword...", "")
-    
-    if facts:
-        for f in facts:
-            if search_query.lower() in f.get('statement', '').lower() or search_query.lower() in f.get('document', '').lower():
-                st.markdown(f"""
-                <div class="glass-card">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <div style="flex: 1;">
-                            <h4 style="margin-top: 0; margin-bottom: 8px;">{f.get('statement', 'N/A')}</h4>
-                            <p style="margin-bottom: 4px;"><strong>Entities:</strong> {', '.join(f.get('entities', []))}</p>
-                            <p style="margin-bottom: 4px;"><strong>Time Scope:</strong> {f.get('time_scope', 'N/A')} | <strong>Units:</strong> {f.get('units', 'N/A')}</p>
-                        </div>
-                        <div style="text-align: right; margin-left: 20px;">
-                            <span style="background: rgba(34, 211, 238, 0.1); color: #22d3ee; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; white-space: nowrap;">Conf: {f.get('confidence', 0.0)}</span>
-                        </div>
-                    </div>
-                    <hr style="border-color: rgba(148, 163, 184, 0.2); margin: 12px 0;">
-                    <div style="font-size: 0.85em; color: #64748b;">
-                        📄 Source: <strong>{f.get('document', 'Unknown')}</strong>
-                        <br>
-                        <em>"{f.get('evidence_quote', 'N/A')}"</em>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-    else:
-        st.info("No facts extracted yet. Upload some PDFs in the control panel.")
-
-with tab3:
-    st.markdown("### Cross-Document Reasoning Engine")
-    
     if relationships:
         for r in relationships:
             rel_type = r.get('relationship_type', 'Unknown')
@@ -255,23 +274,54 @@ with tab3:
             elif "Contextual" in rel_type: css_class = "rel-contextual"
             
             st.markdown(f"""
-            <div class="glass-card">
+            <div class="ledger-card">
                 <span class="rel-banner {css_class}">{rel_type}</span>
-                <p style="font-size: 1.1em; margin-bottom: 20px;"><strong>Verdict:</strong> {r.get('explanation', 'N/A')}</p>
+                <p style="font-size: 1.1em; margin-bottom: 20px; font-family: 'Crimson Pro', serif; color: #111111;">
+                    <strong>Verdict:</strong> {r.get('explanation', 'N/A')}
+                </p>
                 
                 <div style="display: flex; flex-wrap: wrap; gap: 20px;">
                     <div class="fact-col">
-                        <div class="fact-col-title">Fact A</div>
-                        <div style="color: #f8fafc; font-weight: 500; margin-bottom: 10px;">{r.get('fact1', {}).get('statement', 'Unknown')}</div>
-                        <div style="font-size: 0.8em; color: #94a3b8;">📄 {r.get('fact1', {}).get('document', 'Unknown')}</div>
+                        <div class="fact-col-title">Source Fact A</div>
+                        <div style="color: #2c2c2c; font-weight: 500; margin-bottom: 10px;">{r.get('fact1', {}).get('statement', 'Unknown')}</div>
+                        <div style="font-size: 0.85em; color: #5e5c58;">📄 {r.get('fact1', {}).get('document', 'Unknown')}</div>
                     </div>
                     <div class="fact-col">
-                        <div class="fact-col-title">Fact B</div>
-                        <div style="color: #f8fafc; font-weight: 500; margin-bottom: 10px;">{r.get('fact2', {}).get('statement', 'Unknown')}</div>
-                        <div style="font-size: 0.8em; color: #94a3b8;">📄 {r.get('fact2', {}).get('document', 'Unknown')}</div>
+                        <div class="fact-col-title">Source Fact B</div>
+                        <div style="color: #2c2c2c; font-weight: 500; margin-bottom: 10px;">{r.get('fact2', {}).get('statement', 'Unknown')}</div>
+                        <div style="font-size: 0.85em; color: #5e5c58;">📄 {r.get('fact2', {}).get('document', 'Unknown')}</div>
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
     else:
-        st.info("No relationships found yet. Extract facts from multiple documents to see reasoning.")
+        st.info("No relationships found. Extract facts from multiple documents to generate reasoning.")
+
+with tab2:
+    search_query = st.text_input("Filter Repository...", "")
+    
+    if facts:
+        for f in facts:
+            if search_query.lower() in f.get('statement', '').lower() or search_query.lower() in f.get('document', '').lower():
+                st.markdown(f"""
+                <div class="ledger-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <h4 style="margin-top: 0; margin-bottom: 8px; font-family: 'Crimson Pro', serif; color: #111111;">{f.get('statement', 'N/A')}</h4>
+                            <p style="margin-bottom: 4px; font-size: 0.9em;"><strong>Entities:</strong> {', '.join(f.get('entities', []))}</p>
+                            <p style="margin-bottom: 4px; font-size: 0.9em;"><strong>Time Scope:</strong> {f.get('time_scope', 'N/A')} | <strong>Units:</strong> {f.get('units', 'N/A')}</p>
+                        </div>
+                        <div style="text-align: right; margin-left: 20px;">
+                            <span style="border: 1px solid #d1cbbd; color: #5e5c58; padding: 2px 6px; font-size: 0.75em; font-family: 'IBM Plex Sans', sans-serif;">Conf: {f.get('confidence', 0.0)}</span>
+                        </div>
+                    </div>
+                    <hr style="border-color: #d1cbbd; border-style: solid; margin: 12px 0;">
+                    <div style="font-size: 0.85em; color: #5e5c58;">
+                        📄 Source: <strong>{f.get('document', 'Unknown')}</strong>
+                        <br>
+                        <em>"{f.get('evidence_quote', 'N/A')}"</em>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("No facts extracted. Upload PDFs via the control panel.")

@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: knowledge-layer-backend
+    env: docker
+    dockerfilePath: ./Dockerfile.backend
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: ANTHROPIC_API_KEY
+        sync: false

@@ -8,7 +8,7 @@ import os
 # Configure page
 st.set_page_config(page_title="Knowledge Layer", layout="wide", initial_sidebar_state="expanded")
 
-API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000/api")
+API_BASE = "http://localhost:8000/api"
 
 # --- Premium Dark/Neon Custom CSS ---
 st.markdown("""

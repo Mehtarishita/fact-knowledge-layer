@@ -74,34 +74,13 @@ This project uses a modern two-tier architecture:
 - Python 3.9+
 - *(Optional)* Anthropic API Key (Set `ANTHROPIC_API_KEY` in your `.env`)
 
-### Setup Instructions
+### Deployment (One-Click Render)
+This application bundles both the FastAPI backend and Streamlit frontend into a single unified Docker container.
+It is configured to deploy as a single Web Service on Render.com.
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Mehtarishita/fact-knowledge-layer.git
-   cd fact-knowledge-layer
-   ```
-
-2. **Create a virtual environment and install dependencies:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-3. **Start the FastAPI Backend:**
-   Open a terminal and run:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-   The backend will start on `http://localhost:8000`.
-
-4. **Start the Streamlit Frontend:**
-   Open a *second* terminal (keep the backend running) and run:
-   ```bash
-   streamlit run frontend/app.py
-   ```
-   The dashboard will automatically open in your browser at `http://localhost:8501`.
+1. Go to **Render.com** -> **New** -> **Blueprint**.
+2. Connect this GitHub repository.
+3. Render will automatically detect `render.yaml` and deploy both the backend and frontend on a single public URL.
 
 ### Clearing the Ledger
 If you want to reset the database and vector store for testing new documents, simply click the **"Clear Ledger (Reset)"** button in the Streamlit sidebar Control Panel.

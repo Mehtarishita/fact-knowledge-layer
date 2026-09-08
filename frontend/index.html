@@ -42,6 +42,16 @@
                 </div>
             </section>
 
+            <section class="cases-panel" style="margin-bottom: 3rem;">
+                <h2>Required Demo Cases</h2>
+                <ul class="cases-list">
+                    <li id="case-corroboration" class="case-item"><span class="case-icon">◯</span> Corroboration</li>
+                    <li id="case-contradiction" class="case-item"><span class="case-icon">◯</span> Contradiction</li>
+                    <li id="case-contextual" class="case-item"><span class="case-icon">◯</span> Contextual Reconciliation</li>
+                    <li id="case-failure" class="case-item"><span class="case-icon">◯</span> Extraction Failure</li>
+                </ul>
+            </section>
+
             <section class="filter-panel">
                 <h2>Filter & Search</h2>
                 <input type="text" id="search-input" placeholder="Search facts..." onkeyup="handleSearch()">
@@ -57,7 +67,10 @@
             <section id="content-state" style="display: none;">
                 <div class="section-header">
                     <h2>Cross-Document Relationships</h2>
-                    <button class="btn-refresh" onclick="fetchData(true)">Sync Ledger</button>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <span id="last-synced" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;"></span>
+                        <button class="btn-refresh" id="btn-sync" onclick="fetchData(true)">Sync Ledger</button>
+                    </div>
                 </div>
                 <div class="relationships-container" id="relationships-container">
                     <!-- Cards populated via JS -->

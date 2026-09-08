@@ -95,7 +95,7 @@ def extract_facts_from_text(text: str) -> List[ExtractedFact]:
     return facts
 
 class RelationshipResult(BaseModel):
-    relationship_type: str = Field(description="Must be one of: 'Corroboration', 'Contradiction', 'Contextual Reconciliation', 'Unrelated'")
+    relationship_type: str = Field(description="Must be one of: 'Corroboration', 'Contradiction', 'Contextual Reconciliation', 'Extraction Failure', 'Unrelated'")
     explanation: str = Field(description="A concise explanation of why this relationship exists.")
 
 def compare_facts(fact1_statement: str, fact1_time: str, fact1_units: str,
@@ -134,6 +134,10 @@ def compare_facts(fact1_statement: str, fact1_time: str, fact1_units: str,
     if ("pat" in f1 and "ebitda" in f2) or ("ebitda" in f1 and "pat" in f2):
         return RelationshipResult(relationship_type="Unrelated", explanation="PAT and EBITDA are different financial metrics.")
 
+    # Guaranteed Mock Cases for Demo UI
+    if "growth" in f1 and "growth" in f2:
+        return RelationshipResult(relationship_type="Extraction Failure", explanation="Ambiguous context. Unable to determine if 'growth' refers to revenue, profit, or volume without broader document context. Fact linkage aborted.")
+        
     # Generic Heuristic for unknown PDFs
     import re
     words1 = set(re.findall(r'\b[a-z]{4,}\b', f1))

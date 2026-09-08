@@ -6,6 +6,19 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchData();
 });
 
+function animateValue(obj, start, end, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        obj.innerHTML = Math.floor(progress * (end - start) + start);
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
 // File Upload Logic
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
@@ -53,21 +66,37 @@ function startPolling() {
 }
 
 function fetchData(forceRender = false) {
+    const syncBtn = document.getElementById('btn-sync');
+    if (syncBtn) {
+        syncBtn.classList.add('syncing');
+        syncBtn.textContent = 'Syncing...';
+    }
+
     Promise.all([
         fetch('/api/facts').then(res => res.json()),
         fetch('/api/relationships').then(res => res.json())
     ])
     .then(([facts, relationships]) => {
+        if (syncBtn) {
+            syncBtn.classList.remove('syncing');
+            syncBtn.textContent = 'Sync Ledger';
+            const now = new Date();
+            document.getElementById('last-synced').textContent = `Last Synced: ${now.toLocaleTimeString()}`;
+        }
+
         if (forceRender || JSON.stringify(facts) !== JSON.stringify(allFacts) || 
             JSON.stringify(relationships) !== JSON.stringify(allRelationships)) {
+            
+            const prevDocsCount = new Set(allFacts.map(f => f.document)).size;
+            const newDocsCount = new Set(facts.map(f => f.document)).size;
+            
             allFacts = facts;
             allRelationships = relationships;
             
-            // Toggle Empty State
-            const docsCount = new Set(facts.map(f => f.document)).size;
-            document.getElementById('stat-docs').textContent = docsCount;
-            document.getElementById('stat-facts').textContent = facts.length;
-            document.getElementById('stat-rels').textContent = relationships.length;
+            // Animate Stats if they changed
+            if (forceRender || prevDocsCount !== newDocsCount) animateValue(document.getElementById('stat-docs'), prevDocsCount, newDocsCount, 800);
+            animateValue(document.getElementById('stat-facts'), 0, facts.length, 800);
+            animateValue(document.getElementById('stat-rels'), 0, relationships.length, 800);
             
             if (facts.length > 0) {
                 document.getElementById('loading-state').style.display = 'none';
@@ -77,7 +106,13 @@ function fetchData(forceRender = false) {
             renderUI();
         }
     })
-    .catch(err => console.error("Error fetching data:", err));
+    .catch(err => {
+        console.error("Error fetching data:", err);
+        if (syncBtn) {
+            syncBtn.classList.remove('syncing');
+            syncBtn.textContent = 'Sync Failed';
+        }
+    });
 }
 
 function handleSearch() {
@@ -118,23 +153,65 @@ function renderUI() {
 
     renderFactsList(Object.values(groupedFacts));
     
-    // Filter relationships based on query
+    // Filter and Deduplicate relationships based on query
     const filteredRels = allRelationships.filter(rel => 
         rel.fact1.statement.toLowerCase().includes(query) ||
         rel.fact2.statement.toLowerCase().includes(query) ||
         rel.explanation.toLowerCase().includes(query)
     );
+
+    const groupedRels = {};
+    filteredRels.forEach(rel => {
+        const key = [rel.fact1.statement, rel.fact2.statement].sort().join('|') + '|' + rel.relationship_type;
+        if (!groupedRels[key]) {
+            groupedRels[key] = { ...rel, count: 0 };
+        }
+        groupedRels[key].count += 1;
+    });
     
-    renderRelationshipsList(filteredRels);
+    const uniqueRels = Object.values(groupedRels);
+    renderRelationshipsList(uniqueRels);
+
+    // Update Required Cases Checklist
+    let seenCorroboration = false;
+    let seenContradiction = false;
+    let seenContextual = false;
+    let seenFailure = false;
+
+    uniqueRels.forEach(rel => {
+        if (rel.relationship_type === 'Corroboration') seenCorroboration = true;
+        if (rel.relationship_type === 'Contradiction') seenContradiction = true;
+        if (rel.relationship_type === 'Contextual Reconciliation') seenContextual = true;
+        if (rel.relationship_type === 'Extraction Failure') seenFailure = true;
+    });
+
+    const toggleCheck = (id, met) => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (met) {
+                el.classList.add('met');
+                el.querySelector('.case-icon').textContent = '✔';
+            } else {
+                el.classList.remove('met');
+                el.querySelector('.case-icon').textContent = '◯';
+            }
+        }
+    };
+
+    toggleCheck('case-corroboration', seenCorroboration);
+    toggleCheck('case-contradiction', seenContradiction);
+    toggleCheck('case-contextual', seenContextual);
+    toggleCheck('case-failure', seenFailure);
 }
 
 function renderFactsList(groups) {
     const container = document.getElementById('facts-list');
     container.innerHTML = '';
     
-    groups.forEach(group => {
+    groups.forEach((group, index) => {
         const item = document.createElement('div');
-        item.className = 'fact-item';
+        item.className = 'fact-item animate-in';
+        item.style.animationDelay = `${index * 0.05}s`;
         item.dataset.factIds = group.ids.join(',');
         
         let metaHtml = '';
@@ -145,7 +222,7 @@ function renderFactsList(groups) {
             <div class="evidence-block" data-fact-id="${e.id}">
                 <div class="evidence-quote">"${e.quote}"</div>
                 <div class="evidence-meta">
-                    <span class="evidence-doc">${e.document}</span>
+                    <span class="evidence-doc" style="cursor:pointer; text-decoration:underline; title="Clicking would jump to PDF view">${e.document}</span>
                     <span>Page ${e.page}</span>
                     <span>Confidence: ${(e.confidence * 100).toFixed(0)}%</span>
                 </div>
@@ -180,21 +257,31 @@ function renderRelationshipsList(relationships) {
     const container = document.getElementById('relationships-container');
     container.innerHTML = '';
     
-    relationships.forEach(rel => {
+    relationships.forEach((rel, index) => {
         const card = document.createElement('div');
         
         let layoutClass = 'layout-unrelated';
         if (rel.relationship_type.includes('Corroboration')) layoutClass = 'layout-corroboration';
         if (rel.relationship_type.includes('Contradiction')) layoutClass = 'layout-contradiction';
         if (rel.relationship_type.includes('Contextual')) layoutClass = 'layout-contextual';
+        if (rel.relationship_type.includes('Failure')) layoutClass = 'layout-failure';
         
-        card.className = `relationship-card ${layoutClass}`;
+        card.className = `relationship-card animate-in ${layoutClass}`;
+        card.style.animationDelay = `${index * 0.08}s`;
         card.dataset.fact1Id = rel.fact1.id;
         card.dataset.fact2Id = rel.fact2.id;
         
+        let countBadge = '';
+        if (rel.count > 1) {
+            countBadge = `<span style="background:var(--text-secondary); color:white; font-size:0.7rem; padding:0.15rem 0.4rem; border-radius:12px; margin-left:1rem;">Seen in ${rel.count} document pairs</span>`;
+        }
+
         card.innerHTML = `
             <div class="rel-header">
-                <span class="rel-type">${rel.relationship_type}</span>
+                <div>
+                    <span class="rel-type">${rel.relationship_type}</span>
+                    ${countBadge}
+                </div>
                 <span class="rel-reasoning">${rel.explanation}</span>
             </div>
             <div class="rel-body">

@@ -213,6 +213,29 @@ tr:hover {
     background: var(--accent-hover);
 }
 
+.fact-row {
+    transition: background 0.3s ease;
+    cursor: pointer;
+}
+.fact-row.highlight {
+    background: rgba(59, 130, 246, 0.15);
+    box-shadow: inset 2px 0 0 var(--accent-color);
+}
+
+.relationship-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.3s ease;
+    cursor: pointer;
+}
+
+.relationship-card.highlight {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
 @media (max-width: 1024px) {
     .content-grid {
         grid-template-columns: 1fr;

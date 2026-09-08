@@ -137,10 +137,12 @@ def get_relationships(db: Session = Depends(database.get_db)):
             "relationship_type": r.relationship_type,
             "explanation": r.explanation,
             "fact1": {
+                "id": f1.id if f1 else None,
                 "statement": f1.statement if f1 else "Unknown",
                 "document": doc1.filename if doc1 else "Unknown"
             },
             "fact2": {
+                "id": f2.id if f2 else None,
                 "statement": f2.statement if f2 else "Unknown",
                 "document": doc2.filename if doc2 else "Unknown"
             }

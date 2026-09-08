@@ -31,12 +31,17 @@ This project implements a system to extract meaningful facts from PDFs, link the
    ```
 
 ### Running the Application
-1. Start the FastAPI backend and frontend:
+This project uses a modern two-tier architecture:
+1. **Start the FastAPI Backend:** (Handles PDF ingestion, LLM parsing, and database)
    ```bash
    uvicorn app.main:app --reload
    ```
-2. Open your browser to `http://localhost:8000`. You will see the application UI.
-3. Drag and drop PDF files into the upload zone to ingest them. They will be processed in the background.
+2. **Start the Streamlit Frontend:** (In a new terminal window, handles the interactive UI)
+   ```bash
+   streamlit run streamlit_app.py
+   ```
+3. Open your browser to `http://localhost:8501`. You will see the Verifier's Ledger UI.
+4. Upload PDF files via the sidebar to ingest them. They will be processed in the background by the FastAPI server, and you can click "Sync Ledger" to refresh the data.
 
 ## Video Demo
 <ADD DEMO VIDEO LINK HERE>
@@ -50,7 +55,7 @@ This project implements a system to extract meaningful facts from PDFs, link the
   2. We query ChromaDB for the top 3 most similar existing facts.
   3. We pass the candidate pairs to Claude to categorize the relationship as Corroboration, Contradiction, Contextual Reconciliation, or Unrelated, along with an explanation.
 - **Storage:** SQLite (via SQLAlchemy) is used for robust local storage of documents, facts, and relationships.
-- **UI:** A sleek, vanilla HTML/CSS/JS frontend served directly by FastAPI. We used a modern dark-mode aesthetic with glassmorphism for a premium feel without the overhead of React/Next.js.
+- **UI:** A sleek, Python-native **Streamlit** frontend (`streamlit_app.py`). It features a high-contrast dark mode aesthetic and uses injected HTML/CSS to render custom, bespoke layouts for complex relationships (like Contradictions splitting apart with a "VS" badge). It interacts with the FastAPI backend to fetch facts and trigger ingestions.
 
 ## Four Required Demo Cases
 The pipeline was run successfully against the `delhivery` and `india-macroeconomy` datasets. Here are four real examples surfaced by the system:

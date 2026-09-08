@@ -9,3 +9,6 @@ sentence-transformers
 pydantic
 python-dotenv
 pytest
+streamlit
+pandas
+requests

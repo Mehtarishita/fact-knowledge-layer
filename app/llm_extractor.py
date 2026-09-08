@@ -33,12 +33,11 @@ def extract_facts_from_text(text: str) -> List[ExtractedFact]:
                 if content.type == "tool_use" and content.name == "record_facts":
                     return FactExtractionResult.model_validate(content.input).facts
         except Exception as e:
-            print(f"API Error: {e}")
-
-    # Fallback to Mock Extractor for Demo
+            print(f"API Error: {e}")    # Fallback to Mock Extractor for Demo
     facts = []
     text_lower = text.lower()
     
+    # Specific cases for the demo
     if "ebitda margin" in text_lower and "1.6%" in text_lower:
         facts.append(ExtractedFact(
             statement="EBITDA margin improved to 1.6%", entities=["Delhivery", "EBITDA"],
@@ -57,13 +56,41 @@ def extract_facts_from_text(text: str) -> List[ExtractedFact]:
     if "real gdp is estimated to grow by 6.4 per cent in fy25" in text_lower:
         facts.append(ExtractedFact(
             statement="India's real GDP estimated to grow by 6.4 percent", entities=["India", "Real GDP"],
-            units="%", time_scope="FY25", confidence=0.90, evidence_quote="India’s real GDP is estimated to grow by 6.4 per cent in FY25"
+            units="%", time_scope="FY25", confidence=0.90, evidence_quote="India's real GDP is estimated to grow by 6.4 per cent in FY25"
         ))
     if "real gross domestic product (gdp) growth moderated to 6.5" in text_lower:
         facts.append(ExtractedFact(
             statement="Real GDP growth moderated to 6.5 percent", entities=["India", "Real GDP"],
             units="%", time_scope="2024-25", confidence=0.95, evidence_quote="real gross domestic product (GDP) growth moderated to 6.5 per cent in 2024-25"
         ))
+
+    # Generic Heuristic for ANY unknown PDF if no specific matches found
+    if not facts:
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', text.replace('\n', ' '))
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) < 20 or len(sentence) > 250:
+                continue
+            
+            # Look for numerical facts or strong semantic keywords
+            if re.search(r'\d+', sentence) and re.search(r'(%|percent|margin|revenue|profit|loss|gdp|growth|\$|crore|million|billion)', sentence, re.IGNORECASE):
+                units = None
+                if "%" in sentence or "percent" in sentence.lower(): units = "%"
+                elif "$" in sentence or "USD" in sentence: units = "USD"
+                elif "Rs" in sentence or "INR" in sentence or "crore" in sentence.lower(): units = "INR"
+                    
+                facts.append(ExtractedFact(
+                    statement=sentence[:100] + ("..." if len(sentence) > 100 else ""),
+                    entities=["Extracted Subject"],
+                    units=units,
+                    time_scope="Unknown",
+                    confidence=0.75,
+                    evidence_quote=sentence[:150]
+                ))
+                
+                if len(facts) >= 3: # Limit to 3 facts per chunk
+                    break
 
     return facts
 
@@ -76,13 +103,25 @@ def compare_facts(fact1_statement: str, fact1_time: str, fact1_units: str,
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if api_key and api_key != "your-api-key-here":
         client = anthropic.Anthropic(api_key=api_key)
-        # API logic omitted for brevity in fallback mode
-        pass
+        system_prompt = "You are an expert analyst. Determine if facts Corroborate, Contradict, or Reconcile."
+        tools = [{"name": "record_relationship", "description": "Record relationship", "input_schema": RelationshipResult.model_json_schema()}]
+        try:
+            prompt = f"Fact 1: {fact1_statement}\nFact 2: {fact2_statement}"
+            response = client.messages.create(
+                model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt, tools=tools,
+                tool_choice={"type": "tool", "name": "record_relationship"}, messages=[{"role": "user", "content": prompt}]
+            )
+            for content in response.content:
+                if content.type == "tool_use" and content.name == "record_relationship":
+                    return RelationshipResult.model_validate(content.input)
+        except Exception as e:
+            print(f"Error during comparison: {e}")
 
     # Mock Relationship Engine
     f1 = fact1_statement.lower()
     f2 = fact2_statement.lower()
     
+    # Specific cases for demo
     if "ebitda" in f1 and "ebitda" in f2:
         return RelationshipResult(relationship_type="Corroboration", explanation="Both documents consistently report Delhivery achieving positive EBITDA margins in FY24.")
     
@@ -95,10 +134,26 @@ def compare_facts(fact1_statement: str, fact1_time: str, fact1_units: str,
     if ("pat" in f1 and "ebitda" in f2) or ("ebitda" in f1 and "pat" in f2):
         return RelationshipResult(relationship_type="Unrelated", explanation="PAT and EBITDA are different financial metrics.")
 
-    # Force a contradiction case for demo purposes if nothing else matched
-    if "gdp" in f1 and "gdp" in f2:
-        return RelationshipResult(relationship_type="Contradiction", explanation="The reported GDP figures show a slight discrepancy that cannot be fully reconciled with the given context.")
-
+    # Generic Heuristic for unknown PDFs
+    import re
+    words1 = set(re.findall(r'\b[a-z]{4,}\b', f1))
+    words2 = set(re.findall(r'\b[a-z]{4,}\b', f2))
+    overlap = len(words1.intersection(words2))
+    
+    if overlap >= 2:
+        nums1 = set(re.findall(r'\d+\.?\d*', f1))
+        nums2 = set(re.findall(r'\d+\.?\d*', f2))
+        if nums1 and nums2 and not nums1.intersection(nums2):
+            return RelationshipResult(
+                relationship_type="Contradiction",
+                explanation=f"Both facts discuss similar topics (shared terms: {', '.join(words1.intersection(words2))}) but contain conflicting numbers."
+            )
+        else:
+            return RelationshipResult(
+                relationship_type="Corroboration",
+                explanation=f"Both facts discuss the same topic with similar terms ({', '.join(words1.intersection(words2))}) and no conflicting numbers."
+            )
+            
     return None
 
 

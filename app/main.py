@@ -1,7 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 import shutil
 import os
@@ -23,12 +21,9 @@ app.add_middleware(
 
 os.makedirs("./data/uploads", exist_ok=True)
 
-# Mount frontend
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
-
 @app.get("/")
 def read_root():
-    return FileResponse("frontend/index.html")
+    return {"message": "Fact Knowledge Layer API is running. Please start the Streamlit app."}
 
 def process_pdf(filepath: str, filename: str, db: Session):
     try:
@@ -148,3 +143,16 @@ def get_relationships(db: Session = Depends(database.get_db)):
             }
         })
     return result
+
+@app.post("/api/clear")
+def clear_ledger(db: Session = Depends(database.get_db)):
+    db.query(models.Relationship).delete()
+    db.query(models.Fact).delete()
+    db.query(models.Document).delete()
+    db.commit()
+    try:
+        from app.embeddings import collection
+        collection.delete(where={"fact_id": {"$gte": 0}})
+    except Exception as e:
+        print(f"Failed to clear vector store: {e}")
+    return {"message": "Ledger cleared successfully."}

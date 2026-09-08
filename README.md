@@ -1,89 +1,117 @@
-# Fact Knowledge Layer
+# Knowledge Layer
 
-This project implements a system to extract meaningful facts from PDFs, link them to evidence, and identify when facts across multiple documents corroborate, contradict, or can be reconciled through context.
+### Evidence-Grounded Knowledge Layer for Complex PDFs
 
-## Setup and Run Instructions
+Knowledge Layer converts multiple PDF documents into a structured, evidence-grounded knowledge graph.
+
+It extracts meaningful factual claims, preserves their source evidence (document, page, and exact quote), normalizes values and context, identifies relationships across documents, and produces an explainable final verdict using deterministic fallback heuristics and optional Anthropic LLM support.
+
+Instead of treating every difference as a contradiction, the engine considers factors such as **time, scope, units, currency, and numerical variance** before classifying relationships.
+
+---
+
+## Overview
+
+The pipeline follows an evidence-first approach:
+
+```mermaid
+graph TD
+    A[Upload PDFs] --> B[Page-Aware Extraction]
+    B --> C[Sentence Boundary Chunking]
+    C --> D[Fact Extraction Engine]
+    D --> E[Entity Normalization]
+    E --> F[Vector Semantic Matching]
+    F --> G[Relationship Reasoning]
+    G --> H[Final Verdict]
+```
+
+The result is an inspectable knowledge layer where every important conclusion can be traced back to its source.
+
+---
+
+## Core Capabilities
+
+### 1. Page-Aware PDF Extraction
+PDFs are parsed locally using `pdfplumber` while retaining document and page-level provenance.
+For every extracted chunk, the engine preserves:
+- Document filename
+- Page number
+- Original source text snippet
+
+### 2. Dynamic Fact Extraction
+The engine extracts both numerical and semantic facts using a flexible schema. If an Anthropic API key is provided, it uses Claude 3.5 Sonnet. If not, it falls back to a deterministic Regex/Heuristic engine.
+
+A fact object contains:
+```json
+{
+  "statement": "The company reported a 15% revenue increase",
+  "entities": ["company", "revenue"],
+  "units": "%",
+  "time_scope": "2024",
+  "confidence": 0.85,
+  "evidence_quote": "...reported a 15% revenue increase in FY24..."
+}
+```
+
+### 3. Cross-Document Relationship Analysis
+The engine uses ChromaDB to find semantically similar facts across different documents. It then compares them to classify their relationship.
+
+#### Primary Classifications:
+- **CORROBORATION:** Facts discuss the same topic and numerical values align.
+- **CONTRADICTION:** Facts discuss the same topic but contain conflicting numerical values.
+- **CONTEXTUAL RECONCILIATION:** Facts discuss the same topic but refer to different timeframes (e.g., 2024 vs 2025).
+- **EXTRACTION FAILURE:** Ambiguous context or missing numbers preventing a confident verdict.
+
+---
+
+## Running the Application
+
+This project uses a modern two-tier architecture:
+1. **FastAPI Backend:** Handles PDF ingestion, parsing, ChromaDB vector search, and the SQLite relational database.
+2. **Streamlit Frontend:** A sleek, dark-mode analytical dashboard with custom CSS.
 
 ### Prerequisites
-- Python 3.10+
-- Anthropic API Key (Claude 3.5 Sonnet is used for extraction and reasoning)
+- Python 3.9+
+- *(Optional)* Anthropic API Key (Set `ANTHROPIC_API_KEY` in your `.env`)
 
-### Installation
-1. Clone the repository:
+### Setup Instructions
+
+1. **Clone the repository:**
    ```bash
-   git clone https://github.com/Mehtarishita/fact-knowledge-layer-
-   cd fact-knowledge-layer-
+   git clone https://github.com/Mehtarishita/fact-knowledge-layer.git
+   cd fact-knowledge-layer
    ```
-2. Create and activate a virtual environment:
+
+2. **Create a virtual environment and install dependencies:**
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-   ```
-3. Install dependencies:
-   ```bash
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
-4. Set up environment variables:
-   Copy `.env.example` to `.env` and add your API key:
-   ```bash
-   cp .env.example .env
-   # Edit .env and set ANTHROPIC_API_KEY=your-key
-   ```
 
-### Running the Application
-This project uses a modern two-tier architecture:
-1. **Start the FastAPI Backend:** (Handles PDF ingestion, LLM parsing, and database)
+3. **Start the FastAPI Backend:**
+   Open a terminal and run:
    ```bash
    uvicorn app.main:app --reload
    ```
-2. **Start the Streamlit Frontend:** (In a new terminal window, handles the interactive UI)
+   The backend will start on `http://localhost:8000`.
+
+4. **Start the Streamlit Frontend:**
+   Open a *second* terminal (keep the backend running) and run:
    ```bash
-   streamlit run streamlit_app.py
+   streamlit run frontend/app.py
    ```
-3. Open your browser to `http://localhost:8501`. You will see the Verifier's Ledger UI.
-4. Upload PDF files via the sidebar to ingest them. They will be processed in the background by the FastAPI server, and you can click "Sync Ledger" to refresh the data.
+   The dashboard will automatically open in your browser at `http://localhost:8501`.
 
-## Video Demo
-<ADD DEMO VIDEO LINK HERE>
+### Clearing the Ledger
+If you want to reset the database and vector store for testing new documents, simply click the **"Clear Ledger (Reset)"** button in the Streamlit sidebar Control Panel.
 
-## Approach
+---
 
-- **PDF Ingestion:** PyMuPDF (`fitz`) is used to extract text while maintaining a mapping to the source page number.
-- **Fact Extraction:** A chunk of text is sent to Claude 3.5 Sonnet using Anthropic's tool-calling API. We define a flexible Pydantic schema `Fact(statement, entities, units, time_scope, confidence, evidence_quote)`. This forces the LLM to output structured JSON without hardcoding the types of facts we care about.
-- **Relationship Engine:** 
-  1. As new facts are extracted, they are embedded using a local `sentence-transformers` model (`all-MiniLM-L6-v2`) via ChromaDB. This is fast, free, and reduces API calls.
-  2. We query ChromaDB for the top 3 most similar existing facts.
-  3. We pass the candidate pairs to Claude to categorize the relationship as Corroboration, Contradiction, Contextual Reconciliation, or Unrelated, along with an explanation.
-- **Storage:** SQLite (via SQLAlchemy) is used for robust local storage of documents, facts, and relationships.
-- **UI:** A sleek, Python-native **Streamlit** frontend (`streamlit_app.py`). It features a high-contrast dark mode aesthetic and uses injected HTML/CSS to render custom, bespoke layouts for complex relationships (like Contradictions splitting apart with a "VS" badge). It interacts with the FastAPI backend to fetch facts and trigger ingestions.
+## Running Tests
 
-## Four Required Demo Cases
-The pipeline was run successfully against the `delhivery` and `india-macroeconomy` datasets. Here are four real examples surfaced by the system:
-
-1. **Corroboration** 
-   - **Fact:** Delhivery's EBITDA margin for FY24 was 1.6%.
-   - **Evidence:** This fact was successfully extracted from both the *Delhivery FY24 Annual Report* and the *Delhivery Q4 FY24 Earnings Presentation*.
-   - **Reasoning:** The relationship engine correctly flagged this as a Corroboration because both documents report the same underlying truth and metric for the same time period.
-
-2. **Genuine/likely contradiction** 
-   - **Fact:** India's real GDP growth for FY2024-25.
-   - **Evidence:** The *IMF Article IV* report cites a real GDP growth projection of 6.5% for FY2024-25, while the *Economic Survey 2024-25* estimates it at 6.4%.
-   - **Reasoning:** The system flagged this as a Contradiction as the two documents disagree on the exact value of the same macroeconomic indicator for the same fiscal year.
-
-3. **Apparent contradiction explained by context**
-   - **Fact:** Delhivery's Profit After Tax (PAT) profitability.
-   - **Evidence:** The *Q4 Earnings Presentation* highlights achieving the "first PAT profitable quarter in Q3 FY24". However, the *Annual Report* states a Net Loss of ₹2,491.86 million for the full year FY24.
-   - **Reasoning:** The relationship engine classified this as Contextual Reconciliation. The apparent contradiction is resolved by the time scope: the profitability was achieved in one specific quarter (Q3), while the net loss applies to the aggregated 12-month period (full FY24).
-
-4. **An extraction or reasoning failure**
-   - **Fact:** Time scope normalization.
-   - **Failure:** The LLM initially failed to accurately compare "FY24" (from the Delhivery deck) and "2023-24" (from the Annual Report), classifying two identical EBITDA facts as "Unrelated" due to the strict time-string mismatch. 
-   - **Fix:** We handled this by ensuring the extraction prompt enforces a normalized time_scope schema (e.g., mapping "2023-24" to "FY24"), allowing the relationship engine to successfully match and corroborate them.
-
-## Limitations and Next Steps
-- **Chunking Strategy:** Currently, we extract text page by page. This might break facts that span across page boundaries. A rolling window chunking strategy with overlap would be more robust.
-- **Table Extraction:** PyMuPDF gets text, but complex tables might lose structure. Using `pdfplumber` or `unstructured` for dedicated table extraction would improve financial data accuracy.
-- **Scale:** Currently processing happens sequentially in the background. For large numbers of PDFs, a task queue like Celery + Redis would be better.
-
-## Additional Notes
-- The dataset used to test this includes excerpts from Delhivery's financial reports and India's macroeconomy reports. The schema-less LLM extraction successfully generalizes across both corporate finance and macroeconomic domains.
+An integration test suite is provided to verify the dynamic reasoning engine.
+To run the tests:
+```bash
+PYTHONPATH="." pytest tests/
+```
